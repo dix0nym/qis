@@ -69,10 +69,6 @@ def parse_data(soup):
         data.append(grade(*args))
     return sorted(list(set(data)))
 
-def handle_status_code(resp):
-    if resp.status_code != 200:
-        print(resp.status_code, resp.text)
-
 def get_notenspiegel_url(source):
     soup = bs(source, 'html.parser')
     notenspiegel_url = [k for k in soup.find_all('a', attrs={'class':'auflistung'}) if 'Notenspiegel' == k.text]
@@ -87,18 +83,12 @@ def get_leistungen_url(source):
         exit("smth went wrong, couldnt find leistungen")
     return leistungen[0]['href']
 
-def get_table(grades):
-    table = []
-    for grade in grades:
-        table.append(grade.get_as_list())
-    return table
 
-def check_notes(grades, config):
+def check_grades(grades, config):
     session = requests.session()
     session.get(url, headers=headers)
     payload = {'asdf': config.qisLogin.username, 'submit': 'Ok', 'fdsa': config.qisLogin.password}
     resp = session.post(login_url, payload, headers=headers)
-    handle_status_code(resp)
     if logout_url not in resp.text:
         print(resp.text)
         exit("login failed")
@@ -112,7 +102,7 @@ def check_notes(grades, config):
     if grades:
         diff = list(set(new_grades) - set(grades))
         if diff:
-            table = tabulate(get_table(grades), headers=["Nr", "Modul", "Semester", "Note", "Status", "ECTS", "Art", "pv", "vs", "Datum"])
+            table = tabulate([entry.get_as_list() for entry in diff], headers=["Nr", "Modul", "Semester", "Note", "Status", "ECTS", "Art", "pv", "vs", "Datum"])
             if config.sendMail:
                 print("sent email to {}".format(config.receiveMail))
                 s = SendMail(config.senderMail.username, config.senderMail.password)
@@ -130,7 +120,7 @@ def job(config):
     if os.path.isfile(ofile):
         with open(ofile, 'rb') as f:
             grades = pickle.load(f)
-    grades = check_notes(grades, config)
+    grades = check_grades(grades, config)
     with open(ofile, 'wb') as f:
         pickle.dump(grades, f, pickle.HIGHEST_PROTOCOL)
 
