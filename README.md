@@ -19,12 +19,14 @@ python script to check for changes on qis
         "username": "username",
         "password": "password"
     },
-    "schedule": 2, // check every x hours
     "sendMail": true/false, // sendMail if new entry
     "receiveMail": "receivemail@abc.de", // email to receive
     "senderMail": { // email to send
         "username": "sendermail@abc.de",
         "password": "emailpassword"
-    }
+    },
+    "notifyEmails": [
+        "notify@abc.de"
+    ]
 }
 ```
