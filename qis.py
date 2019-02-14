@@ -28,7 +28,8 @@ headers = {
 logger = logging.getLogger(__name__)
 
 class grade:
-    def __init__(self, nummer, modul, semester, note, status, ects, art, pv, vs, datum):
+    def __init__(self, nummer, modul, semester, note, status, ects, art, pv,
+                 vs, datum):
         self.nummer = int(nummer)
         self.modul = modul
         self.semester = semester
@@ -39,32 +40,38 @@ class grade:
         self.pv = pv
         self.vs = int(vs)
         self.datum = datum
-    
+
     def get_as_list(self):
         return [self.nummer, self.modul, self.semester, self.note, self.status, self.ects, self.art, self.pv, self.vs, self.datum]
 
     def __eq__(self, obj):
-        return (isinstance(obj, self.__class__) and self.__dict__ == obj.__dict__)
-    
+        return (isinstance(obj, self.__class__)
+                and self.__dict__ == obj.__dict__)
+
     def __ne__(self, obj):
         return not self.__eq__(obj)
-    
+
     def __gt__(self, obj):
         return self.nummer > obj.nummer
-    
+
     def __lt__(self, obj):
         return self.nummer < obj.nummer
-    
+
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
-    
+
     def __str__(self):
-        return "{} {} {} {} {} {} {}".format(self.nummer, self.modul, self.semester, self.note, self.status, self.ects, self.datum)
+        return "{} {} {} {} {} {} {}".format(
+            self.nummer, self.modul, self.semester, self.note, self.status,
+            self.ects, self.datum)
 
     def __repr__(self):
         return self.__str__()
 
-def setup_logging(default_path='logging.json', default_level=logging.INFO, env_key='LOG_CFG'):
+
+def setup_logging(default_path='logging.json',
+                  default_level=logging.INFO,
+                  env_key='LOG_CFG'):
     """Setup logging configuration"""
     path = default_path
     value = os.getenv(env_key, None)
@@ -77,36 +84,54 @@ def setup_logging(default_path='logging.json', default_level=logging.INFO, env_k
     else:
         logging.basicConfig(level=default_level)
 
+
 def parse_data(soup):
-    content = soup.find('div', attrs={'class' :'content'})
+    content = soup.find('div', attrs={'class': 'content'})
     table = content.find_all('table')
     data = []
     for tr in table[1].find_all('tr')[2:]:
-        cells = tr.find_all('td', attrs={'class':'qis_records'})
+        cells = tr.find_all('td', attrs={'class': 'qis_records'})
         args = [cell.get_text().strip().replace('&nbsp', '') for cell in cells]
         data.append(grade(*args))
     return sorted(list(set(data)))
 
 def notify(diff, config):
-    fulltable = tabulate([entry.get_as_list() for entry in diff], headers=["Nr", "Modul", "Semester", "Note", "Status", "ECTS", "Art", "pv", "vs", "Datum"])
+    fulltable = tabulate(
+        [entry.get_as_list() for entry in diff],
+        headers=[
+            "Nr", "Modul", "Semester", "Note", "Status", "ECTS", "Art", "pv",
+            "vs", "Datum"
+        ])
     if config.sendMail:
-        server = getMailServer(config.senderMail.username, config.senderMail.password)
+        server = getMailServer(config.senderMail.username,
+                               config.senderMail.password)
         logger.info("sent email to {}".format(config.receiveMail))
-        if not sendMail(server, config.senderMail.username, config.receiveMail, "Veränderung im QIS", fulltable):
-            logger.error("failed to sent email to {}".format(config.receiveMail))
+        if not sendMail(server, config.senderMail.username, config.receiveMail,
+                        "Veränderung im QIS", fulltable):
+            logger.error("failed to sent email to {}".format(
+                config.receiveMail))
         for email in config.notifyEmails:
-            table = tabulate([ [entry.nummer, entry.modul] for entry in diff], headers=["Nr", "Modul"])
+            table = tabulate(
+                [[entry.nummer, entry.modul] for entry in diff],
+                headers=["Nr", "Modul"])
             logger.info("sent email to {}".format(email))
-            if not sendMail(server, config.senderMail.username, email, "Veränderung im QIS", table):
+            if not sendMail(server, config.senderMail.username, email,
+                            "Veränderung im QIS", table):
                 logger.error("failed to sent email to {}".format(email))
     else:
         logger.info(fulltable)
 
+
 def getMailServer(username, password):
-    server = smtplib.SMTP("smtp.web.de", 587)
-    server.starttls()
-    server.login(username, password)
-    return server
+    try:
+        server = smtplib.SMTP("smtp.web.de", 587)
+        server.starttls()
+        server.login(username, password)
+        return server
+    except Exception as e:
+        logger.error("failed to get mailserver: %s", e)
+    return None
+
 
 def sendMail(server, sender_email, receiver, subject, message):
     try:
@@ -116,7 +141,8 @@ def sendMail(server, sender_email, receiver, subject, message):
         msg['Subject'] = subject
         msg.attach(MIMEText(message, 'plain'))
         server.sendmail(sender_email, receiver, msg.as_string())
-    except Exception:
+    except Exception as e:
+        logger.error("failed to send email: %s", e)
         return False
     return True
 
@@ -157,6 +183,7 @@ def check_grades(grades, config):
         logger.debug(resp.text)
     return grades
 
+
 def job(config):
     grades = None
     ofile = 'grades.pickle'
@@ -167,11 +194,13 @@ def job(config):
     with open(ofile, 'wb') as f:
         pickle.dump(grades, f, pickle.HIGHEST_PROTOCOL)
 
+
 def load_config():
     cfile = "config.json"
     if not os.path.isfile(cfile):
         exit("couldn't find config.json")
     return json.load(open(cfile, 'r'), object_hook=lambda d: Namespace(**d))
+
 
 def main():
     setup_logging(default_level=logging.DEBUG)
