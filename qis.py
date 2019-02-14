@@ -4,6 +4,7 @@ import logging
 import logging.config
 import os
 import pickle
+import re
 import smtplib
 import ssl
 import time
@@ -16,18 +17,16 @@ from bs4 import BeautifulSoup as bs
 from tabulate import tabulate
 from user_agent import generate_user_agent
 
+USER_AGENT = generate_user_agent()
+
 headers = {
-    'User-Agent': generate_user_agent(),
+    'User-Agent': USER_AGENT,
     'Accept': 'modul/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
     'Accept-Language':'en-US,en;q=0.5'
 }
 
 logger = logging.getLogger(__name__)
-url = "https://qis.hs-albsig.de/qisserver/rds?state=user&type=0"
-logout_url = "https://qis.hs-albsig.de/qisserver/rds?state=user&type=4&re=last&category=auth.logout&breadCrumbSource=&topitem=functions"
-login_url = 'https://qis.hs-albsig.de/qisserver/rds?state=user&type=1&category=auth.login&startpage=portal.vm'
-verwaltung = 'https://qis.hs-albsig.de/qisserver/rds?state=change&type=1&moduleParameter=studyPOSMenu&nextdir=change&next=menu.vm&subdir=applications&xml=menu&purge=y&navigationPosition=functions%2CstudyPOSMenu&breadcrumb=studyPOSMenu&topitem=functions&subitem=studyPOSMenu'
-    
+
 class grade:
     def __init__(self, nummer, modul, semester, note, status, ects, art, pv, vs, datum):
         self.nummer = int(nummer)
@@ -42,7 +41,7 @@ class grade:
         self.datum = datum
     
     def get_as_list(self):
-        return list(self.__dict__.values())
+        return [self.nummer, self.modul, self.semester, self.note, self.status, self.ects, self.art, self.pv, self.vs, self.datum]
 
     def __eq__(self, obj):
         return (isinstance(obj, self.__class__) and self.__dict__ == obj.__dict__)
@@ -88,20 +87,6 @@ def parse_data(soup):
         data.append(grade(*args))
     return sorted(list(set(data)))
 
-def get_notenspiegel_url(source):
-    soup = bs(source, 'html.parser')
-    notenspiegel_url = [k for k in soup.find_all('a', attrs={'class':'auflistung'}) if 'Notenspiegel' == k.text]
-    if not notenspiegel_url:
-        exit("smth went wrong, couldnt find notenspiegel_url")
-    return notenspiegel_url[0]['href']
-
-def get_leistungen_url(source):
-    soup = bs(source, 'html.parser')
-    leistungen = soup.select('li.treelist > a[title*=Leistungen]')
-    if not leistungen:
-        exit("smth went wrong, couldnt find leistungen")
-    return leistungen[0]['href']
-
 def notify(diff, config):
     fulltable = tabulate([entry.get_as_list() for entry in diff], headers=["Nr", "Modul", "Semester", "Note", "Status", "ECTS", "Art", "pv", "vs", "Datum"])
     if config.sendMail:
@@ -135,20 +120,28 @@ def sendMail(server, sender_email, receiver, subject, message):
         return False
     return True
 
+def getToken(html):
+    pattern = r";asi=(.+?)\""
+    matches = re.findall(pattern, html)
+    return matches[0] if matches else None
+
 def check_grades(grades, config):
     session = requests.session()
-    session.get(url, headers=headers)
+    session.get(config.url.home_url, headers=headers)
     payload = {'asdf': config.qisLogin.username, 'submit': 'Ok', 'fdsa': config.qisLogin.password}
-    resp = session.post(login_url, payload, headers=headers)
+    resp = session.post(config.url.login_url, payload, headers=headers)
     if "angemeldet" not in resp.text:
-        logger.info(resp.text)
-        exit("login failed")
+        logger.error("login failed")
+        logger.debug(resp.text)
+        exit(1)
     logger.debug("login successfull")
-    # navigate to leistungen
-    resp = session.get(verwaltung)
-    resp = session.get(get_notenspiegel_url(resp.text))
-    resp = session.get(get_leistungen_url(resp.text))
-
+    resp = session.get(config.url.verwaltung_url)
+    token = getToken(resp.text)
+    if not token:
+        logger.error("Couldnt regex token. exiting")
+        logger.debug(resp.text)
+        exit(1)
+    resp = session.get(config.url.notenspiegel_url.format(token))
     new_grades = parse_data(bs(resp.text, 'html.parser'))
     if grades:
         diff = sorted(list(set(new_grades) - set(grades)))
@@ -158,7 +151,7 @@ def check_grades(grades, config):
         else:
             logger.info("no change")
     grades = new_grades
-    resp = session.get(logout_url)
+    resp = session.get(config.url.logout_url)
     if "angemeldet" in resp.text:
         logger.warn("failed to logout")
         logger.debug(resp.text)
