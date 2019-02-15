@@ -1,4 +1,3 @@
-import datetime
 import json
 import logging
 import logging.config
@@ -6,8 +5,6 @@ import os
 import pickle
 import re
 import smtplib
-import ssl
-import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from types import SimpleNamespace as Namespace
@@ -20,50 +17,40 @@ from user_agent import generate_user_agent
 USER_AGENT = generate_user_agent()
 
 headers = {
-    'User-Agent': USER_AGENT,
-    'Accept': 'modul/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Language':'en-US,en;q=0.5'
+    'User-Agent':
+    USER_AGENT,
+    'Accept':
+    'modul/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language':
+    'en-US,en;q=0.5'
 }
 
 logger = logging.getLogger(__name__)
 
+
 class grade:
-    def __init__(self, nummer, modul, semester, note, status, ects, art, pv,
-                 vs, datum):
+    def __init__(self, nummer, modul, semester, note):
         self.nummer = int(nummer)
         self.modul = modul
         self.semester = semester
         self.note = float(note.replace(',', '.')) if note else note
-        self.status = status
-        self.ects = float(ects.replace(',', '.'))
-        self.art = art
-        self.pv = pv
-        self.vs = int(vs)
-        self.datum = datum
 
     def get_as_list(self):
-        return [self.nummer, self.modul, self.semester, self.note, self.status, self.ects, self.art, self.pv, self.vs, self.datum]
+        return [self.nummer, self.modul, self.semester, self.note]
 
     def __eq__(self, obj):
         return (isinstance(obj, self.__class__)
                 and self.__dict__ == obj.__dict__)
 
-    def __ne__(self, obj):
-        return not self.__eq__(obj)
-
     def __gt__(self, obj):
         return self.nummer > obj.nummer
-
-    def __lt__(self, obj):
-        return self.nummer < obj.nummer
 
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
 
     def __str__(self):
-        return "{} {} {} {} {} {} {}".format(
-            self.nummer, self.modul, self.semester, self.note, self.status,
-            self.ects, self.datum)
+        return "{} {} {} {}".format(self.nummer, self.modul, self.semester,
+                                    self.note)
 
     def __repr__(self):
         return self.__str__()
@@ -91,17 +78,17 @@ def parse_data(soup):
     data = []
     for tr in table[1].find_all('tr')[2:]:
         cells = tr.find_all('td', attrs={'class': 'qis_records'})
-        args = [cell.get_text().strip().replace('&nbsp', '') for cell in cells]
+        args = [
+            cell.get_text().strip().replace('&nbsp', '') for cell in cells
+        ][:4]
         data.append(grade(*args))
     return sorted(list(set(data)))
+
 
 def notify(diff, config):
     fulltable = tabulate(
         [entry.get_as_list() for entry in diff],
-        headers=[
-            "Nr", "Modul", "Semester", "Note", "Status", "ECTS", "Art", "pv",
-            "vs", "Datum"
-        ])
+        headers=["Nr", "Modul", "Semester", "Note"])
     if config.sendMail:
         server = getMailServer(config.senderMail.username,
                                config.senderMail.password)
@@ -146,15 +133,21 @@ def sendMail(server, sender_email, receiver, subject, message):
         return False
     return True
 
+
 def getToken(html):
     pattern = r";asi=(.+?)\""
     matches = re.findall(pattern, html)
     return matches[0] if matches else None
 
+
 def check_grades(grades, config):
     session = requests.session()
     session.get(config.url.home_url, headers=headers)
-    payload = {'asdf': config.qisLogin.username, 'submit': 'Ok', 'fdsa': config.qisLogin.password}
+    payload = {
+        'asdf': config.qisLogin.username,
+        'submit': 'Ok',
+        'fdsa': config.qisLogin.password
+    }
     resp = session.post(config.url.login_url, payload, headers=headers)
     if "angemeldet" not in resp.text:
         logger.error("login failed")
