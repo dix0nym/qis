@@ -12,13 +12,10 @@ from types import SimpleNamespace as Namespace
 import requests
 from bs4 import BeautifulSoup as bs
 from tabulate import tabulate
-from user_agent import generate_user_agent
 
-USER_AGENT = generate_user_agent()
-
+USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.85 Safari/537.36"
 headers = {
-    'User-Agent':
-    USER_AGENT,
+    'User-Agent': USER_AGENT,
     'Accept':
     'modul/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
     'Accept-Language':
@@ -90,10 +87,9 @@ def notify(diff, config):
         [entry.get_as_list() for entry in diff],
         headers=["Nr", "Modul", "Semester", "Note"])
     if config.sendMail:
-        server = getMailServer(config.senderMail.username,
-                               config.senderMail.password)
+        server = get_mail_server(config)
         logger.info("sent email to {}".format(config.receiveMail))
-        if not sendMail(server, config.senderMail.username, config.receiveMail,
+        if not send_mail(server, config.senderMail.username, config.receiveMail,
                         "Veränderung im QIS", fulltable):
             logger.error("failed to sent email to {}".format(
                 config.receiveMail))
@@ -102,25 +98,25 @@ def notify(diff, config):
                 [[entry.nummer, entry.modul] for entry in diff],
                 headers=["Nr", "Modul"])
             logger.info("sent email to {}".format(email))
-            if not sendMail(server, config.senderMail.username, email,
+            if not send_mail(server, config.senderMail.username, email,
                             "Veränderung im QIS", table):
                 logger.error("failed to sent email to {}".format(email))
     else:
         logger.info(fulltable)
 
 
-def getMailServer(username, password):
+def get_mail_server(config):
     try:
         server = smtplib.SMTP("smtp.web.de", 587)
         server.starttls()
-        server.login(username, password)
+        server.login(config.senderMail.username, config.senderMail.password)
         return server
     except Exception as e:
         logger.error("failed to get mailserver: %s", e)
     return None
 
 
-def sendMail(server, sender_email, receiver, subject, message):
+def send_mail(server, sender_email, receiver, subject, message):
     try:
         msg = MIMEMultipart()
         msg['From'] = sender_email
@@ -134,7 +130,7 @@ def sendMail(server, sender_email, receiver, subject, message):
     return True
 
 
-def getToken(html):
+def get_token(html):
     pattern = r";asi=(.+?)\""
     matches = re.findall(pattern, html)
     return matches[0] if matches else None
@@ -154,13 +150,13 @@ def check_grades(grades, config):
         logger.debug(resp.text)
         exit(1)
     logger.debug("login successfull")
-    resp = session.get(config.url.verwaltung_url)
-    token = getToken(resp.text)
+    resp = session.get(config.url.verwaltung_url, headers={'User-Agent': USER_AGENT})
+    token = get_token(resp.text)
     if not token:
         logger.error("Couldnt regex token. exiting")
         logger.debug(resp.text)
         exit(1)
-    resp = session.get(config.url.notenspiegel_url.format(token))
+    resp = session.get(config.url.notenspiegel_url.format(token), headers={'User-Agent': USER_AGENT})
     new_grades = parse_data(bs(resp.text, 'html.parser'))
     if grades:
         diff = sorted(list(set(new_grades) - set(grades)))
@@ -189,15 +185,15 @@ def job(config):
 
 
 def load_config():
-    cfile = "config.json"
-    if not os.path.isfile(cfile):
+    config_file = "config.json"
+    if not os.path.isfile(config_file):
         exit("couldn't find config.json")
-    return json.load(open(cfile, 'r'), object_hook=lambda d: Namespace(**d))
+    return json.load(open(config_file, 'r'), object_hook=lambda d: Namespace(**d))
 
 
 def main():
     setup_logging(default_level=logging.DEBUG)
-    config = load_config()
+    config = load_config()   
     job(config)
 
 
