@@ -90,7 +90,7 @@ def createTable(data, cols):
     x.field_names = cols
     x.align["Modul"] = "l"
     for row in data:
-        x.add_row(row.get_as_list())
+        x.add_row(row)
     return x
 
 def notify(diff, config):
