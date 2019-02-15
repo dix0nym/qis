@@ -100,14 +100,14 @@ def notify(diff, config):
         server = get_mail_server(config)
         logger.info("sent email to {}".format(config.receiveMail))
         if not send_mail(server, config.senderMail.username, config.receiveMail,
-                        "Veränderung im QIS", fulltable):
+                        "Veränderung im QIS", str(fulltable)):
             logger.error("failed to sent email to {}".format(
                 config.receiveMail))
         for email in config.notifyEmails:
             table = createTable([[entry.nummer, entry.modul] for entry in diff], ["Nr", "Modul"])
             logger.info("sent email to {}".format(email))
             if not send_mail(server, config.senderMail.username, email,
-                            "Veränderung im QIS", table):
+                            "Veränderung im QIS", str(table)):
                 logger.error("failed to sent email to {}".format(email))
     else:
         logger.info(fulltable)
@@ -178,7 +178,6 @@ def check_grades(grades, config):
         else:
             logger.info("no change")
     grades = new_grades
-    print(createTable([entry.get_as_list() for entry in grades], ["Nr", "Modul", "Semester", "Note"]))
     resp = session.get(config.url.logout_url)
     if "angemeldet" in resp.text:
         logger.warn("failed to logout")
