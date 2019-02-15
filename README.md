@@ -27,6 +27,13 @@ python script to check for changes on qis
     },
     "notifyEmails": [
         "notify@abc.de"
-    ]
+    ],
+    "url": {
+        "home_url": "https://qis.hs-albsig.de/qisserver/rds?state=user&type=0",
+        "login_url": "https://qis.hs-albsig.de/qisserver/rds?state=user&type=1&category=auth.login&startpage=portal.vm",
+        "logout_url": "https://qis.hs-albsig.de/qisserver/rds?state=user&type=4&re=last&category=auth.logout&breadCrumbSource=&topitem=functions",
+        "verwaltung_url": "https://qis.hs-albsig.de/qisserver/rds?state=change&type=1&moduleParameter=studyPOSMenu&nextdir=change&next=menu.vm&subdir=applications&xml=menu&purge=y&navigationPosition=functions%2CstudyPOSMenu&breadcrumb=studyPOSMenu&topitem=functions&subitem=studyPOSMenu",
+        "notenspiegel_url": "https://qis.hs-albsig.de/qisserver/rds?state=notenspiegelStudent&next=list.vm&nextdir=qispos/notenspiegel/student&createInfos=Y&struct=auswahlBaum&nodeID=auswahlBaum|abschluss:abschl=84,stgnr=1&expand=0&asi={}#auswahlBaum|abschluss:abschl=84,stgnr=1"
+    }
 }
 ```
