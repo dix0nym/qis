@@ -11,7 +11,7 @@ from types import SimpleNamespace as Namespace
 
 import requests
 from bs4 import BeautifulSoup as bs
-from tabulate import tabulate
+from prettytable import PrettyTable
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.85 Safari/537.36"
 headers = {
@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class grade:
+    """grade class"""
     def __init__(self, nummer, modul, semester, note):
         self.nummer = int(nummer)
         self.modul = modul
@@ -33,6 +34,7 @@ class grade:
         self.note = float(note.replace(',', '.')) if note else note
 
     def get_as_list(self):
+        """return attributes as ordered list"""
         return [self.nummer, self.modul, self.semester, self.note]
 
     def __eq__(self, obj):
@@ -70,6 +72,7 @@ def setup_logging(default_path='logging.json',
 
 
 def parse_data(soup):
+    """parse online table into list of grade"""
     content = soup.find('div', attrs={'class': 'content'})
     table = content.find_all('table')
     data = []
@@ -81,11 +84,18 @@ def parse_data(soup):
         data.append(grade(*args))
     return sorted(list(set(data)))
 
+def createTable(data, cols):
+    """create table with prettyTable from list"""
+    x = PrettyTable()
+    x.field_names = cols
+    x.align["Modul"] = "l"
+    for row in data:
+        x.add_row(row)
+    return x
 
 def notify(diff, config):
-    fulltable = tabulate(
-        [entry.get_as_list() for entry in diff],
-        headers=["Nr", "Modul", "Semester", "Note"])
+    """notify as defined in config"""
+    fulltable = createTable([entry.get_as_list() for entry in diff], ["Nr", "Modul", "Semester", "Note"])
     if config.sendMail:
         server = get_mail_server(config)
         logger.info("sent email to {}".format(config.receiveMail))
@@ -94,9 +104,7 @@ def notify(diff, config):
             logger.error("failed to sent email to {}".format(
                 config.receiveMail))
         for email in config.notifyEmails:
-            table = tabulate(
-                [[entry.nummer, entry.modul] for entry in diff],
-                headers=["Nr", "Modul"])
+            table = createTable([[entry.nummer, entry.modul] for entry in diff], ["Nr", "Modul"])
             logger.info("sent email to {}".format(email))
             if not send_mail(server, config.senderMail.username, email,
                             "Veränderung im QIS", table):
@@ -106,6 +114,7 @@ def notify(diff, config):
 
 
 def get_mail_server(config):
+    """create mail server and login"""
     try:
         server = smtplib.SMTP("smtp.web.de", 587)
         server.starttls()
@@ -117,6 +126,7 @@ def get_mail_server(config):
 
 
 def send_mail(server, sender_email, receiver, subject, message):
+    """send mail to receiver with mailserver server"""
     try:
         msg = MIMEMultipart()
         msg['From'] = sender_email
@@ -131,12 +141,14 @@ def send_mail(server, sender_email, receiver, subject, message):
 
 
 def get_token(html):
+    """return regexed token from website source"""
     pattern = r";asi=(.+?)\""
     matches = re.findall(pattern, html)
     return matches[0] if matches else None
 
 
 def check_grades(grades, config):
+    """check for update on qis"""
     session = requests.session()
     session.get(config.url.home_url, headers=headers)
     payload = {
@@ -166,6 +178,7 @@ def check_grades(grades, config):
         else:
             logger.info("no change")
     grades = new_grades
+    print(createTable([entry.get_as_list() for entry in grades], ["Nr", "Modul", "Semester", "Note"]))
     resp = session.get(config.url.logout_url)
     if "angemeldet" in resp.text:
         logger.warn("failed to logout")
@@ -174,6 +187,7 @@ def check_grades(grades, config):
 
 
 def job(config):
+    """job"""
     grades = None
     ofile = 'grades.pickle'
     if os.path.isfile(ofile):
@@ -185,6 +199,7 @@ def job(config):
 
 
 def load_config():
+    """load json_config file"""
     config_file = "config.json"
     if not os.path.isfile(config_file):
         exit("couldn't find config.json")
@@ -192,6 +207,7 @@ def load_config():
 
 
 def main():
+    """main"""
     setup_logging(default_level=logging.DEBUG)
     config = load_config()   
     job(config)
