@@ -26,14 +26,11 @@ headers = {
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(default_path='logging.json',
-                  default_level=logging.INFO,
-                  env_key='LOG_CFG'):
+def setup_logging(default_path='logging.json', default_level=logging.INFO):
     """Setup logging configuration"""
+    if not os.path.isdir("logs"):
+        os.makedirs("logs")
     path = default_path
-    value = os.getenv(env_key, None)
-    if value:
-        path = value
     if os.path.exists(path):
         with open(path, 'rt') as config_file:
             config = json.load(config_file)
