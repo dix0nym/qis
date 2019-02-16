@@ -26,8 +26,9 @@ python script to check for changes on qis
         "password": "emailpassword"
     },
     "notifyEmails": [
-        "notify@abc.de"
+        "notify@abc.de" // emails to notify
     ],
+    "notify_graph": true|false, // include graph in notify emails
     "url": {
         "home_url": "https://qis.hs-albsig.de/qisserver/rds?state=user&type=0",
         "login_url": "https://qis.hs-albsig.de/qisserver/rds?state=user&type=1&category=auth.login&startpage=portal.vm",

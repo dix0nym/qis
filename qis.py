@@ -3,15 +3,16 @@ import logging
 import logging.config
 import os
 import pickle
-import re
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from types import SimpleNamespace as Namespace
 
 import requests
 from bs4 import BeautifulSoup as bs
-from prettytable import PrettyTable
+from tabulate import tabulate
+
+from lib.grade import Grade
+from lib.mailhelper import MailHelper
+from lib.plot import create_plot
+from lib.util import clean, get_token
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.85 Safari/537.36"
 headers = {
@@ -23,36 +24,6 @@ headers = {
 }
 
 logger = logging.getLogger(__name__)
-
-
-class grade:
-    """grade class"""
-    def __init__(self, nummer, modul, semester, note):
-        self.nummer = int(nummer)
-        self.modul = modul
-        self.semester = semester
-        self.note = float(note.replace(',', '.')) if note else note
-
-    def get_as_list(self):
-        """return attributes as ordered list"""
-        return [self.nummer, self.modul, self.semester, self.note]
-
-    def __eq__(self, obj):
-        return (isinstance(obj, self.__class__)
-                and self.__dict__ == obj.__dict__)
-
-    def __gt__(self, obj):
-        return self.nummer > obj.nummer
-
-    def __hash__(self):
-        return hash(tuple(sorted(self.__dict__.items())))
-
-    def __str__(self):
-        return "{} {} {} {}".format(self.nummer, self.modul, self.semester,
-                                    self.note)
-
-    def __repr__(self):
-        return self.__str__()
 
 
 def setup_logging(default_path='logging.json',
@@ -81,73 +52,69 @@ def parse_data(soup):
         args = [
             cell.get_text().strip().replace('&nbsp', '') for cell in cells
         ][:4]
-        data.append(grade(*args))
+        url = cells[3].select('a')
+        url = url[0]['href'] if url else None
+        data.append(Grade(*args, url=url))
     return sorted(list(set(data)))
 
-def createTable(data, cols):
-    """create table with prettyTable from list"""
-    x = PrettyTable()
-    x.field_names = cols
-    x.align["Modul"] = "l"
-    for row in data:
-        x.add_row(row)
-    return x
+def get_graph_data(session, url):  
+    resp = session.get(url, headers={'User-Agent': USER_AGENT})
+    soup = bs(resp.text, 'html.parser')
+    table = soup.select('.content > form > table')[-1]
+    trs = table.select('tr')[3:]
+    data = {}
+    data['average'] = float(clean(trs[-1].select('td')[1].text.strip()).replace(',', '.'))
+    data['participants'] = int(clean(trs[-2].select('td')[1].text.strip()))
+    data['names'] = []
+    data['values'] = []
+    for tr in trs[:-2]:
+        cols = tr.select('td')
+        desc = clean(cols[0].text.strip())
+        desc = desc[desc.find('(')+1:-1]
+        value = int(clean(cols[1].text.replace("(inklusive Ihrer Leistung)", "").strip()))
+        data['names'].append(desc)
+        data['values'].append(value)
+    return data
 
-def notify(diff, config):
+def create_plots(session, diff):
+    fnames = []
+    for entry in diff:
+        if not entry.url:
+            continue
+        data = get_graph_data(session, entry.url)
+        fname = create_plot(entry.modul, data['names'], data['values'], data['participants'])
+        fnames.append(fname)
+    return fnames
+
+def create_table(diff, header, fmt=None):
+    values = [ [entry.get_attr(k.lower()) for k in header] for entry in diff]
+    table = tabulate(values, header, tablefmt=fmt)
+    return table
+
+def cleanup(fnames):
+    for fname in fnames:
+        os.remove(fname)
+    
+def notify(diff, config, fnames):
     """notify as defined in config"""
-    fulltable = createTable([entry.get_as_list() for entry in diff], ["Nr", "Modul", "Semester", "Note"])
     if config.sendMail:
-        server = get_mail_server(config)
-        logger.info("sent email to {}".format(config.receiveMail))
-        if not send_mail(server, config.senderMail.username, config.receiveMail,
-                        "Veränderung im QIS", str(fulltable)):
+        fulltable = create_table(diff, ["Nr", "Modul", "Semester", "Note"], fmt="html")
+        mailhelper = MailHelper(config)
+        logger.info("sending email to {}".format(config.receiveMail))
+        if not mailhelper.send_mail(config.receiveMail, "Veränderung im QIS", fulltable, fnames=fnames):
             logger.error("failed to sent email to {}".format(
                 config.receiveMail))
         for email in config.notifyEmails:
-            table = createTable([[entry.nummer, entry.modul] for entry in diff], ["Nr", "Modul"])
-            logger.info("sent email to {}".format(email))
-            if not send_mail(server, config.senderMail.username, email,
-                            "Veränderung im QIS", str(table)):
+            table = create_table(diff, ["Nr", "Modul"], fmt="html")
+            imgs = fnames if config.notify_graph else None
+            logger.info("sending email to {}".format(email))
+            if not mailhelper.send_mail(email, "Veränderung im QIS", table, fnames=imgs):
                 logger.error("failed to sent email to {}".format(email))
+            cleanup(fnames)
     else:
-        logger.info(fulltable)
+        logger.info(create_table(diff, ["Nr", "Modul", "Semester", "Note"], fmt="simple"))
 
-
-def get_mail_server(config):
-    """create mail server and login"""
-    try:
-        server = smtplib.SMTP("smtp.web.de", 587)
-        server.starttls()
-        server.login(config.senderMail.username, config.senderMail.password)
-        return server
-    except Exception as e:
-        logger.error("failed to get mailserver: %s", e)
-    return None
-
-
-def send_mail(server, sender_email, receiver, subject, message):
-    """send mail to receiver with mailserver server"""
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = sender_email
-        msg['To'] = receiver
-        msg['Subject'] = subject
-        msg.attach(MIMEText(message, 'plain'))
-        server.sendmail(sender_email, receiver, msg.as_string())
-    except Exception as e:
-        logger.error("failed to send email: %s", e)
-        return False
-    return True
-
-
-def get_token(html):
-    """return regexed token from website source"""
-    pattern = r";asi=(.+?)\""
-    matches = re.findall(pattern, html)
-    return matches[0] if matches else None
-
-
-def check_grades(grades, config):
+def get_data(grades, config):
     """check for update on qis"""
     session = requests.session()
     session.get(config.url.home_url, headers=headers)
@@ -169,21 +136,25 @@ def check_grades(grades, config):
         logger.debug(resp.text)
         exit(1)
     resp = session.get(config.url.notenspiegel_url.format(token), headers={'User-Agent': USER_AGENT})
-    new_grades = parse_data(bs(resp.text, 'html.parser'))
+    return session, parse_data(bs(resp.text, 'html.parser'))
+
+def compare(grades, new_grades, config, session):
     if grades:
         diff = sorted(list(set(new_grades) - set(grades)))
         if diff:
             logger.info("Change on qis")
-            notify(diff, config)
+            if config.sendMail:
+                fnames = create_plots(session, diff)
+            notify(diff, config, fnames)
         else:
             logger.info("no change")
-    grades = new_grades
+    return new_grades
+
+def logout(session, config):
     resp = session.get(config.url.logout_url)
     if "angemeldet" in resp.text:
         logger.warn("failed to logout")
         logger.debug(resp.text)
-    return grades
-
 
 def job(config):
     """job"""
@@ -192,7 +163,9 @@ def job(config):
     if os.path.isfile(ofile):
         with open(ofile, 'rb') as f:
             grades = pickle.load(f)
-    grades = check_grades(grades, config)
+    session, new_grades = get_data(grades, config)
+    grades = compare(grades, new_grades, config, session)
+    logout(session, config)
     with open(ofile, 'wb') as f:
         pickle.dump(grades, f, pickle.HIGHEST_PROTOCOL)
 
