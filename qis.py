@@ -79,7 +79,7 @@ def create_plots(session, diff):
         if not entry.url:
             continue
         data = get_graph_data(session, entry.url)
-        fname = create_plot(entry.modul, data['names'], data['values'], data['participants'])
+        fname = create_plot(entry.modul, data['names'], data['values'], data['participants'], data['average'])
         fnames.append(fname)
     return fnames
 
