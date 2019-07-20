@@ -107,7 +107,7 @@ def notify(diff, config, fnames):
             logger.info("sending email to {}".format(email))
             if not mailhelper.send_mail(email, "Veränderung im QIS", table, fnames=imgs):
                 logger.error("failed to sent email to {}".format(email))
-            cleanup(fnames)
+        cleanup(fnames)
     else:
         logger.info(create_table(diff, ["Nr", "Modul", "Semester", "Note"], fmt="simple"))
 
