@@ -87,10 +87,6 @@ def create_table(diff, header, fmt=None):
     values = [ [entry.get_attr(k.lower()) for k in header] for entry in diff]
     table = tabulate(values, header, tablefmt=fmt)
     return table
-
-def cleanup(fnames):
-    for fname in fnames:
-        os.remove(fname)
     
 def notify(diff, config, fnames):
     """notify as defined in config"""
@@ -107,7 +103,6 @@ def notify(diff, config, fnames):
             logger.info("sending email to {}".format(email))
             if not mailhelper.send_mail(email, "Veränderung im QIS", table, fnames=imgs):
                 logger.error("failed to sent email to {}".format(email))
-        cleanup(fnames)
     else:
         logger.info(create_table(diff, ["Nr", "Modul", "Semester", "Note"], fmt="simple"))
 
