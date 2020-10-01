@@ -109,26 +109,8 @@ def notify(diff, config, fnames):
 def get_data(grades, config):
     """check for update on qis"""
     session = requests.session()
-    session.get(config.url.home_url, headers=headers)
-    payload = {
-        'asdf': config.qisLogin.username,
-        'submit': 'Ok',
-        'fdsa': config.qisLogin.password
-    }
-    resp = session.post(config.url.login_url, payload, headers=headers)
-    if "angemeldet" not in resp.text:
-        logger.error("login failed")
-        logger.debug(resp.text)
-        exit(1)
-    logger.debug("login successfull")
-    resp = session.get(config.url.verwaltung_url, headers={'User-Agent': USER_AGENT})
-    token = get_token(resp.text)
-    if not token:
-        logger.error("Couldnt regex token. exiting")
-        logger.debug(resp.text)
-        exit(1)
-    resp = session.get(config.url.notenspiegel_url.format(token), headers={'User-Agent': USER_AGENT})
-    return session, parse_data(bs(resp.text, 'html.parser'))
+    
+    
 
 def compare(grades, new_grades, config, session):
     if grades:
@@ -143,10 +125,7 @@ def compare(grades, new_grades, config, session):
     return new_grades
 
 def logout(session, config):
-    resp = session.get(config.url.logout_url)
-    if "angemeldet" in resp.text:
-        logger.warn("failed to logout")
-        logger.debug(resp.text)
+    
 
 def job(config):
     """job"""
