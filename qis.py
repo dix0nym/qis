@@ -41,17 +41,24 @@ def setup_logging(default_path='logging.json', default_level=logging.INFO):
 
 def parse_data(soup):
     """parse online table into list of grade"""
-    content = soup.find('div', attrs={'class': 'content'})
-    table = content.find_all('table')
+    content = soup.select_one('div.content')
+    table = content.select('table')
     data = []
-    for tr in table[1].find_all('tr')[2:]:
-        cells = tr.find_all('td', attrs={'class': 'qis_records'})
+    if not table or len(table) != 2:
+        return data
+    table = table[1]
+    rows = table.select('tr')
+    for row in rows:
+        cols = row.select('td')
         args = [
-            cell.get_text().strip().replace('&nbsp', '') for cell in cells
-        ][:4]
-        url = cells[3].select('a')
-        url = url[0]['href'] if url else None
-        data.append(Grade(*args, url=url))
+            bytes(c.text, 'utf-8').decode('utf-8', 'ignore').strip().replace('&nbsp', '') for c in cols
+        ]
+        url = ""
+        if cols and len(cols) > 3:
+            url = cols[3].select('a')
+            url = url[0]['href'] if url else None
+        if args and len(args) >= 8: 
+            data.append(Grade(*[args[0], args[1], args[3], args[7]], url=url))
     return sorted(list(set(data)))
 
 def get_graph_data(session, url):  
