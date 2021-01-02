@@ -24,8 +24,6 @@ class Parser:
         """parse online table into list of grade"""
         # PNr, Prüfungstext, PO, Sem, PK, PArt, VS, Note, Status, ECTS, Verm
         soup = bs(data, 'html.parser')
-        with open('modules.html', 'w+') as f:
-            f.write(data)
         content = soup.select_one('div.content')
         table = content.select('table')
         if not table or len(table) != 2:
