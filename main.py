@@ -4,7 +4,7 @@ import logging.config
 from pathlib import Path
 from types import SimpleNamespace as Namespace
 
-from tabulate import tabulate
+from prettytable import PrettyTable
 
 from qislib import QisLib
 from qislib.mailhelper import MailHelper
@@ -24,7 +24,6 @@ def setup_logging(default_path='logging.json', default_level=logging.INFO):
     else:
         logging.basicConfig(level=default_level)
 
-
 def load_config():
     """load json_config file"""
     config_path = Path("config.json")
@@ -32,11 +31,16 @@ def load_config():
         exit("couldn't find config.json")
     return json.load(config_path.open('r'), object_hook=lambda d: Namespace(**d))
 
-
 def create_table(diff, header, fmt=None):
-    values = [[entry[k.lower()] for k in header] for entry in diff]
-    table = tabulate(values, header, tablefmt=fmt)
-    return table
+    pt = PrettyTable()
+    pt.field_names = header
+    pt.format = True
+    for entry in diff:
+        entry['status'] = 'bestanden' if entry['status'] else 'nicht bestanden'
+        entry['note'] = entry['note'] if entry['note'] else ''
+        row_data = [entry[header_name.lower()] for header_name in header]
+        pt.add_row(row_data)
+    return pt.get_html_string()
 
 def notify(updated, config, fnames):
     """notify as defined in config"""
@@ -58,7 +62,7 @@ def notify(updated, config, fnames):
                         f'failed to sent email to {", ".join(eformat.email)}')
     else:
         table = create_table(
-            updated, ["Nr", "Modul", "Semester", "Note"], fmt="simple")
+            updated, ["Nr", "Module", "Note", "Status"], fmt="simple")
         logger.info(table)
 
 def main():
