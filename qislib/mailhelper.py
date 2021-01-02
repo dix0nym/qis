@@ -9,23 +9,25 @@ class MailHelper:
     def __init__(self, creds, logger=None):
         # {username: "", password: ""}
         self.creds = creds
-        self.logger = logger if logger else logging.getLogger(__name__)
-        self.server = None
+        self.logger = logger or logging.getLogger(__name__)
+        self.server = self.get_mail_server()
 
     def get_mail_server(self):
         """create mail server and login"""
         try:
-            self.server = smtplib.SMTP("smtp.web.de", 587)
-            self.server.starttls()
-            self.server.login(self.creds.username, self.creds.password)
+            server = smtplib.SMTP("smtp.web.de", 587)
+            server.starttls()
+            server.login(self.creds.username, self.creds.password)
+            return server
         except Exception as e:
             self.logger.error("failed to get mailserver: %s", e)
-            self.server = None
+        return None
 
     def send_mail(self, receiver, subject, table, fnames=None):
         """send mail to receiver with mailserver server"""
         if not self.server:
-            self.get_mail_server()
+            self.logger.error('mail server not specified!')
+            return False
         try:
             msg = MIMEMultipart('related')
             msg['From'] = self.creds.username
