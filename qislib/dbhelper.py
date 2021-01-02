@@ -3,9 +3,6 @@ from pathlib import Path
 
 import pugsql
 
-logging.basicConfig(
-    format='%(asctime)s  %(name)s  %(levelname)s: %(message)s', level=logging.DEBUG)
-
 
 class DBhelper:
     def __init__(self, logger=None):

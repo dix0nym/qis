@@ -6,9 +6,6 @@ from bs4 import BeautifulSoup as bs
 
 from .util import clean, remove_token, to_float
 
-logging.basicConfig(
-    format='%(asctime)s  %(name)s  %(levelname)s: %(message)s', level=logging.DEBUG)
-
 
 class Parser:
     def __init__(self, logger=None):
