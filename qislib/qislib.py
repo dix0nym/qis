@@ -103,7 +103,7 @@ class QisLib():
             self.logger.debug(
                 f"no details to exam {exam_data['nr']} found")
             return
-        self.db.add_data(exam_data['nr'], exam_details)
+        self.db.add_exam_details(exam_data['nr'], exam_details)
 
     def check(self):
         parsed_modules = self.list_modules()

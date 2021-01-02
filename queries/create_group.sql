@@ -1,2 +1,2 @@
 -- :name create_group :insert
-insert into gradegroup (name) values (:name)
+insert into groups (name) values (:name)

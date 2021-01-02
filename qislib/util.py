@@ -22,3 +22,7 @@ def to_float(data):
         return None
     else:
         return float(data.replace(",", "."))
+
+def get_filename(str):
+    filtered_name = "".join( x for x in str if x.isalnum() or x in "._- ")
+    return filtered_name.replace(' ', '_')

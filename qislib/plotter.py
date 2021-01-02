@@ -5,23 +5,26 @@ import matplotlib.ticker as mtick
 import numpy as np
 
 from .dbhelper import DBhelper
+from .util import get_filename
 
 
 class Plotter:
     def __init__(self, db, records):
         # data = {modul, count, participants, average}
-        self.data = self.build_plot_data(records)
+        self.db = db
         self.groups = ["1 - 1,3", "1,7 - 2,3",
                        "2,7 - 3,3", "3,7 - 4", "4,7 - 5"]
-        self.db = db
+        self.data = self.build_plot_data(records)
 
     def build_plot_data(self, records):
         data = []
         for record in records:
             # get infos from table data
-            data = self.db.get_data(record['nr'])
-            entry = {'modul': record['module'], 'count': data['count'],
-                     'participants': data['participants'], 'average': data['average']}
+            exam_details = self.db.get_exam_details(record['nr'])
+            if not exam_details:
+                continue
+            entry = {'nr': record['nr'], 'modul': record['module'], 'count': exam_details['count'],
+                     'participants': exam_details['participants'], 'average': exam_details['average']}
             data.append(entry)
         return data
 
@@ -29,9 +32,11 @@ class Plotter:
         names = []
         for modul_data in self.data:
             modul = modul_data['modul']
+            nr = modul_data['nr']
             fig = self.create_plot(modul, modul_data['count'],
                                    modul_data['participants'], modul_data['average'])
-            name = self.save_plot(modul, fig)
+            name = self.save_plot(nr, modul, fig)
+            plt.close(fig)
             names.append(name)
         return names
 
@@ -66,10 +71,11 @@ class Plotter:
                 ha='center', va='bottom', bbox=dict(facecolor='red', alpha=0.5))
         return fig
 
-    def save_plot(self, title, fig):
-        fname = Path("plots/", "{}.png".format(title))
-        if not fname.parent.exists():
-            fname.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(fname, format="png", bbox_inches="tight",
+    def save_plot(self, nr, title, fig):
+        name = get_filename(f"{nr}-{title}")
+        path = Path("plots/", f"{name}.png")
+        if not path.parent.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(path, format="png", bbox_inches="tight",
                     bbox_extra_artists=[])
-        return fname
+        return path

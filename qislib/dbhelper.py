@@ -48,7 +48,7 @@ class DBhelper:
             return None
         data['module_id'] = module_nr
         exam = self.queries.create_exam(data)
-        self.logger.info(f"exam  {data['nr']} created")
+        self.logger.info(f"exam {data['nr']} created")
         return exam
 
     def update_exam(self, exam, data):
@@ -57,8 +57,8 @@ class DBhelper:
             return True
         return False
 
-    def data_exists(self, exam_nr):
-        data = self.queries.get_data(exam_nr=exam_nr)
+    def exam_details_exists(self, exam_nr):
+        data = self.queries.get_exam_details(exam_nr=exam_nr)
         if not data:
             return False
         return data
@@ -70,24 +70,24 @@ class DBhelper:
             grades.append(d2g['count'])
         return grades
 
-    def get_data(self, exam_nr):
-        data = self.queries.get_data(exam_nr=exam_nr)
+    def get_exam_details(self, exam_nr):
+        data = self.queries.get_exam_details(exam_nr=exam_nr)
         if not data:
             self.logger.debug(f'data for exam {exam_nr} not found')
             return None
         data['count'] = self.get_grades(exam_nr)
         return data
 
-    def add_data(self, exam_nr, data):
+    def add_exam_details(self, exam_nr, data):
         # data = {exam_nr, average, participants, values}
         exam = self.exam_exists(exam_nr)
         if not exam:
             self.logger.error(f'exam {exam_nr} not found - cant add data')
             return False
-        data_obj = self.data_exists(exam_nr)
+        data_obj = self.exam_details_exists(exam_nr)
         data['exam_nr'] = exam_nr
         if not data_obj:
-            data_obj = self.queries.create_data(data)
+            data_obj = self.queries.create_exam_details(data)
             self.logger.info(f"data {exam_nr} created")
         # average, participants, groups, values
         for gid, value in zip(list(range(1, 6)), data['values']):
