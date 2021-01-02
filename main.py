@@ -1,15 +1,15 @@
 import json
 import logging
+import logging.config
 from pathlib import Path
 from types import SimpleNamespace as Namespace
 
-import tabulate
+from tabulate import tabulate
 
 from qislib import QisLib
 from qislib.mailhelper import MailHelper
 
-logger = logging.getLogger(__name__)
-
+logger = logging.getLogger("qis-checker")
 
 def setup_logging(default_path='logging.json', default_level=logging.INFO):
     """Setup logging configuration"""
@@ -34,19 +34,20 @@ def load_config():
 
 
 def create_table(diff, header, fmt=None):
-    values = [[entry.get_attr(k.lower()) for k in header] for entry in diff]
+    values = [[entry[k.lower()] for k in header] for entry in diff]
     table = tabulate(values, header, tablefmt=fmt)
     return table
 
-
 def notify(updated, config, fnames):
     """notify as defined in config"""
-    if config.sendMail:
-        email_formats = config.notification.format
+    logger.info(f"email notification {'en' if config.email else 'dis'}abled")
+    if config.email:
+        email_formats = config.format
         mailhelper = MailHelper(config.sender)
+        logger.info(f"found {len(email_formats)} email formats")
         for eformat in email_formats:
             table = create_table(updated, eformat.header, fmt="html")
-            imgs = fnames if config.notification.graph else None
+            imgs = fnames if config.graph else None
             for receiver in eformat.email:
                 result = mailhelper.send_mail(
                     receiver, "Veränderung im QIS", table, fnames=imgs)
@@ -60,23 +61,29 @@ def notify(updated, config, fnames):
             updated, ["Nr", "Modul", "Semester", "Note"], fmt="simple")
         logger.info(table)
 
-
 def main():
+    setup_logging()
     config = load_config()
+    logger.info("loaded configuration")
     qis = QisLib(config)
+    logger.info("initialized qislib")
     success = qis.login()
+    logger.info(f"qis login: {'successfull' if success else 'failed'}")
     if not success:
-        logger.error("failed to login")
         return
+    logger.info("checking modules for changes")
     updated = qis.check()
     if not updated:
-        logger.info("nothing changed")
+        logger.info("no changes detected")
         return
+    logger.info(f"found {len(updated)} changes")
     # generate plots
+    logger.info(f"generating plots")
     names = qis.create_plots(updated)
     # generate and send emails
-    notify(updated, config, names)
-
+    notify(updated, config.notification, names)
+    qis.logout()
+    logger.info("qis logout")
 
 if __name__ == "__main__":
     main()
