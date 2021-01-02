@@ -106,3 +106,7 @@ class DBhelper:
                 # self.logger.info(f"create relation {group['id']} -> {exam_nr} => count: {value}")
                 self.queries.create_d2g(
                     group_id=group['id'], exam_nr=exam_nr, count=value)
+
+    def get_updated(self, duration='-5 Minutes'):
+        records = self.queries.get_updated(duration=duration)
+        return records
