@@ -6,8 +6,9 @@ from email.mime.text import MIMEText
 
 
 class MailHelper:
-    def __init__(self, config, logger=None):
-        self.config = config
+    def __init__(self, creds, logger=None):
+        # {username: "", password: ""}
+        self.creds = creds
         self.logger = logger if logger else logging.getLogger(__name__)
         self.server = None
 
@@ -16,7 +17,7 @@ class MailHelper:
         try:
             self.server = smtplib.SMTP("smtp.web.de", 587)
             self.server.starttls()
-            self.server.login(self.config.senderMail.username, self.config.senderMail.password)
+            self.server.login(self.creds.username, self.creds.password)
         except Exception as e:
             self.logger.error("failed to get mailserver: %s", e)
             self.server = None
@@ -27,7 +28,7 @@ class MailHelper:
             self.get_mail_server()
         try:
             msg = MIMEMultipart('related')
-            msg['From'] = self.config.senderMail.username
+            msg['From'] = self.creds.username
             msg['To'] = receiver
             msg['Subject'] = subject
             html = """<head>
@@ -52,7 +53,8 @@ class MailHelper:
                     msgImg = MIMEImage(img, 'png')
                     msgImg.add_header('Content-ID', '<image{}>'.format(i))
                     msg.attach(msgImg)
-            self.server.sendmail(self.config.senderMail.username, receiver, msg.as_string())
+            self.server.sendmail(self.creds.username,
+                                 receiver, msg.as_string())
         except Exception as e:
             self.logger.error("failed to send email: %s", str(e))
             return False

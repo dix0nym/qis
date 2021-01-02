@@ -1,0 +1,2 @@
+-- :name create_exam :insert
+insert into exam (nr, module, part, vs, note, status, ects, url, module_id, created, updated) values (:nr, :module, :part, :vs, :note, :status, :ects, :url, :module_id, DateTime('now'), DateTime('now'));
