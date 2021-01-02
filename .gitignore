@@ -109,3 +109,4 @@ config.json
 *.bak
 module.db
 .vscode/
+plots/
