@@ -1,34 +1,39 @@
-# qis-checker
+# qis
 
-python script to check for changes on qis
+Simple Python script to check for changes on QIS.
 
-## requirements
+Example of a notification received on a new grade in the system:
+
+![notification](notification.png)
+
+## Requirements
+
 - python3
 - pip
 
-## installation
+## Installation
 
 - create virtualenv: `virtualenv env`
 - activate: `source env/scripts/activate`
 - run `python -m pip install -r requirements.txt`
 - create initial database schema: `cat create.sql | sqlite3 module.db`
 
-## usage
+## Usage
 
-- create config file "config.json"
-- ```python qis.py```
-- set cronjob: `/home/qis/main.py 2>&1`
+- create and adapt config file `config.json`
+- one-time execution: `python qis.py`
+- regular using cronjob: `/home/qis/main.py 2>&1`
 
-## config.json
+## Configuration
 
-```
+```json
 {
     "qisLogin": {
         "username": "username",
         "password": "password"
     },
     "notification": {
-        "email": true/false,
+        "email": true|false,
         "format": [
             {
                 "header": ["Nr", "Modul", "Semester", "Note"],
@@ -43,7 +48,7 @@ python script to check for changes on qis
             }
         ],
         "sender": {
-            "username": "sendermail@abc.de",
+            "username": "sendermail@web.de",
             "password": "emailpassword"
         },
         "graph": true|false
