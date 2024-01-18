@@ -22,7 +22,7 @@ Example of a notification received on a new grade in the system:
 
 - create and adapt config file `config.json`
 - one-time execution: `python qis.py`
-- regular using cronjob: `/home/qis/main.py 2>&1`
+- regular using cronjob: `python /home/user/qis/qis.py 2>&1`
 
 ## Configuration
 
